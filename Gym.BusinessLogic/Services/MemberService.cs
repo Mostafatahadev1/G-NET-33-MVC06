@@ -3,23 +3,14 @@ using Gym.BusinessLogic.ViewModel.Members;
 using Gym.DataAccess.Entities;
 using Gym.DataAccess.Enums;
 using Gym.DataAccess.Repositries;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using MySqlX.XDevAPI.Common;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Gym.BusinessLogic.Services
 {
-    public class MemberService(IMemberRepository memberRepo) : IMemberService
+    public class MemberService(IUnitOfWork unitOfWork) : IMemberService
     {
-
-
         public async Task<IEnumerable<MemberIndexViewModel>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            var members = await memberRepo.GetAllAsync(cancellationToken);
+            var members = await unitOfWork.Members.GetAllAsync(cancellationToken);
 
             return members.Select(m => new MemberIndexViewModel
             {
@@ -37,22 +28,16 @@ namespace Gym.BusinessLogic.Services
         {
             var email = model.Email.Trim().ToLower();
             var phone = model.Phone.Trim().ToLower();
-            var name = model.Name.Trim().ToLower();
+            var name = model.Name.Trim();
 
-            if (await memberRepo.ExistsAsync(m => m.Email == email, cancellationToken))
-            {
+            if (await unitOfWork.Members.ExistsAsync(m => m.Email == email, cancellationToken))
                 return false;
-            }
 
             if (!Enum.TryParse(model.Gender, true, out Gender gender))
-            {
                 return false;
-            }
 
             if (!Enum.TryParse(model.HealthRecord.BloodType, true, out BloodType bloodType))
-            {
                 return false;
-            }
 
             var member = new Member
             {
@@ -67,7 +52,7 @@ namespace Gym.BusinessLogic.Services
                 {
                     BuildingNumber = model.BuildingNumber,
                     City = model.City,
-                    Street = model.Street,
+                    Street = model.Street
                 },
 
                 HealthRecord = new HealthRecord
@@ -79,30 +64,24 @@ namespace Gym.BusinessLogic.Services
                 }
             };
 
-            await memberRepo.AddAsync(member, cancellationToken);
-            await memberRepo.SaveChangesAsync(cancellationToken);
+            await unitOfWork.Members.AddAsync(member, cancellationToken);
+            await unitOfWork.ComitAsync(cancellationToken);
 
             return true;
         }
 
-// Updated upstream
         public async Task<MemberDetailsViewModel?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
         {
-            // Get member with their memberships included
-            var member = await memberRepo.GetByIdAsync(
-                id: id,
-                cancellationToken: cancellationToken,
-                m => m.MemberShips
-            );
+            var member = await unitOfWork.Members.GetByIdAsync(
+                id,
+                cancellationToken,
+                m => m.MemberShips);
 
             if (member == null)
-            {
                 return null;
-            }
 
-            // Get the latest membership if available
             var latestMembership = member.MemberShips?
-                .OrderByDescending(ms => ms.EndDate)
+                .OrderByDescending(m => m.EndDate)
                 .FirstOrDefault();
 
             return new MemberDetailsViewModel
@@ -117,6 +96,7 @@ namespace Gym.BusinessLogic.Services
                 Address = member.Address != null
                     ? $"{member.Address.BuildingNumber}, {member.Address.Street}, {member.Address.City}"
                     : string.Empty,
+
                 PlanName = latestMembership?.Plan?.Name ?? string.Empty,
                 MembershipStartDate = latestMembership?.StartDate.ToString("yyyy-MM-dd") ?? string.Empty,
                 MembershipEndDate = latestMembership?.EndDate.ToString("yyyy-MM-dd") ?? string.Empty
@@ -130,12 +110,10 @@ namespace Gym.BusinessLogic.Services
 
         public async Task<HealthRecordDetailsViewModel?> GetHealthRecordAsync(int id, CancellationToken cancellationToken = default)
         {
-            var member = await memberRepo.GetByIdAsync(id, cancellationToken);
+            var member = await unitOfWork.Members.GetByIdAsync(id, cancellationToken);
 
             if (member == null)
-            {
                 throw new InvalidOperationException("Member not found.");
-            }
 
             return new HealthRecordDetailsViewModel
             {
@@ -146,82 +124,49 @@ namespace Gym.BusinessLogic.Services
             };
         }
 
-
-
-
-
-
         public async Task<EditMemberViewModel?> GetForUpdateAsync(int id, CancellationToken cancellationToken = default)
-
         {
-
-            var member = await memberRepo.GetByIdAsync(id, cancellationToken);
-
-
+            var member = await unitOfWork.Members.GetByIdAsync(id, cancellationToken);
 
             if (member == null)
-
                 return null;
 
-
-
             return new EditMemberViewModel
-
             {
-
-                Id = id,
-
+                Id = member.Id,
                 Name = member.Name,
-
                 Email = member.Email,
-
                 Phone = member.Phone,
-
-                PhotoUrl = member.PhoneUrl,
-
+                PhotoUrl = member.Photo,
                 BuildingNumber = member.Address.BuildingNumber,
-
-
-
                 City = member.Address.City,
-
-
-
-                Street = member.Address.Street,
-
-
-
+                Street = member.Address.Street
             };
         }
-        // Replace all usages of the non-existent Result constructor with object initializer syntax
 
-            public async Task<bool> UpdateAsync(EditMemberViewModel editMemberViewModel,
-    CancellationToken cancellationToken = default)
+        public async Task<bool> UpdateAsync(EditMemberViewModel model, CancellationToken cancellationToken = default)
         {
-            var member = await memberRepo.GetByIdAsync(editMemberViewModel.Id, cancellationToken);
+            var member = await unitOfWork.Members.GetByIdAsync(model.Id, cancellationToken);
 
             if (member == null)
                 return false;
 
-            var normalizedEmail = editMemberViewModel.Email.Trim().ToLowerInvariant();
-            var normalizedPhone = editMemberViewModel.Phone.Trim();
+            member.Name = model.Name.Trim();
+            member.Email = model.Email.Trim().ToLower();
+            member.Phone = model.Phone.Trim();
+            member.Photo = model.PhotoUrl;
 
-            member.Name = editMemberViewModel.Name.Trim();
-            member.Email = normalizedEmail;
-            member.Phone = normalizedPhone;
-            member.Photo = editMemberViewModel.PhotoUrl;
-
-            member.Address.BuildingNumber = editMemberViewModel.BuildingNumber;
-            member.Address.City = editMemberViewModel.City;
-            member.Address.Street = editMemberViewModel.Street;
+            member.Address.BuildingNumber = model.BuildingNumber;
+            member.Address.City = model.City;
+            member.Address.Street = model.Street;
 
             member.UpdatedAt = DateTime.UtcNow;
 
-            memberRepo.Update(member);
+            unitOfWork.Members.Update(member);
 
-            await memberRepo.SaveChangesAsync(cancellationToken);
+            await unitOfWork.ComitAsync(cancellationToken);
 
             return true;
         }
     }
-    }
+}

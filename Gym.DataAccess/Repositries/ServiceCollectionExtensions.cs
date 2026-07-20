@@ -27,7 +27,11 @@ namespace Gym.DataAccess.Repositries
 
             services.AddScoped<IMemberRepository, MemberRepository>();
 
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+
             return services;
+
+
         }
     }
 }
