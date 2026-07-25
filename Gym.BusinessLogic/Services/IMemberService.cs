@@ -33,6 +33,7 @@ namespace Gym.BusinessLogic.Services
 
 
         Task<HealthRecordDetailsViewModel>GetHealthRecordAsync(int id, CancellationToken cancellationToken = default);
+        Task<string?> GetForUpdateAsync(int id, CancellationToken cancellationToken);
 =======
         public Task<bool> CreateAsync(CreateMemberViewModel model, CancellationToken cancellationToken = default);
 
