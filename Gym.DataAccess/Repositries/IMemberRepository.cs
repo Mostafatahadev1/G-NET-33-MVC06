@@ -10,10 +10,6 @@ namespace Gym.DataAccess.Repositries
 {
     public interface IMemberRepository : IRepository<Member>
     {
-<<<<<<< Updated upstream
-=======
-        Task<bool> IsEmailTakenAsync(string normalizedEmail, string normalizedPhone);
->>>>>>> Stashed changes
         Task<bool> IsEmailTakenAsync(string normalizedEmail, string normalizedPhone);
     }
 }

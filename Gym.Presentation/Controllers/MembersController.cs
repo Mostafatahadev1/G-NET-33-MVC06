@@ -44,7 +44,6 @@ namespace Gym.Presentation.Controllers
 
         // 2- Vaildate.Unbrostive.min.js => Clinet side vaildation 
 
-<<<<<<< Updated upstream
         [HttpGet]
         public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
         {
@@ -70,7 +69,6 @@ namespace Gym.Presentation.Controllers
 
             return View(HealthRecord);
         }
-=======
 
 
         [HttpGet]
@@ -88,11 +86,10 @@ namespace Gym.Presentation.Controllers
 
         [ValidateAntiForgeryToken]
 
-        public async Task<IActionResult> Edit(EditMemberViewModel editMemberViewModel, CancellationToken cancellationToken)
+        public IActionResult Edit(EditMemberViewModel editMemberViewModel, CancellationToken cancellationToken)
         {
 
         }
 
->>>>>>> Stashed changes
     }
 }
